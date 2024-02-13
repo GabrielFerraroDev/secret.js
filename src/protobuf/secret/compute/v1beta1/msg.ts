@@ -52,11 +52,8 @@ export interface MsgExecuteContract {
   contract: Uint8Array;
   /** msg is an encrypted input to pass to the contract on execute */
   msg: Uint8Array;
-  /** used internally for encryption, should always be empty in a signed transaction */
-  callback_code_hash: string;
-  sent_funds: Coin[];
-  /** used internally for encryption, should always be empty in a signed transaction */
-  callback_sig: Uint8Array;
+
+  funds: Coin[];
 }
 
 /** MsgExecuteContractResponse returns execution result data. */
@@ -507,9 +504,7 @@ function createBaseMsgExecuteContract(): MsgExecuteContract {
     sender: new Uint8Array(),
     contract: new Uint8Array(),
     msg: new Uint8Array(),
-    callback_code_hash: "",
-    sent_funds: [],
-    callback_sig: new Uint8Array(),
+    funds: [],
   };
 }
 
@@ -527,15 +522,11 @@ export const MsgExecuteContract = {
     if (message.msg.length !== 0) {
       writer.uint32(26).bytes(message.msg);
     }
-    if (message.callback_code_hash !== "") {
-      writer.uint32(34).string(message.callback_code_hash);
-    }
-    for (const v of message.sent_funds) {
+   
+    for (const v of message.funds) {
       Coin.encode(v!, writer.uint32(42).fork()).ldelim();
     }
-    if (message.callback_sig.length !== 0) {
-      writer.uint32(50).bytes(message.callback_sig);
-    }
+   
     return writer;
   },
 
@@ -556,13 +547,7 @@ export const MsgExecuteContract = {
           message.msg = reader.bytes();
           break;
         case 4:
-          message.callback_code_hash = reader.string();
-          break;
-        case 5:
-          message.sent_funds.push(Coin.decode(reader, reader.uint32()));
-          break;
-        case 6:
-          message.callback_sig = reader.bytes();
+          message.funds.push(Coin.decode(reader, reader.uint32()));
           break;
         default:
           reader.skipType(tag & 7);
@@ -581,15 +566,9 @@ export const MsgExecuteContract = {
         ? bytesFromBase64(object.contract)
         : new Uint8Array(),
       msg: isSet(object.msg) ? bytesFromBase64(object.msg) : new Uint8Array(),
-      callback_code_hash: isSet(object.callback_code_hash)
-        ? String(object.callback_code_hash)
-        : "",
-      sent_funds: Array.isArray(object?.sent_funds)
-        ? object.sent_funds.map((e: any) => Coin.fromJSON(e))
+      funds: Array.isArray(object?.funds)
+        ? object.funds.map((e: any) => Coin.fromJSON(e))
         : [],
-      callback_sig: isSet(object.callback_sig)
-        ? bytesFromBase64(object.callback_sig)
-        : new Uint8Array(),
     };
   },
 
@@ -607,21 +586,13 @@ export const MsgExecuteContract = {
       (obj.msg = base64FromBytes(
         message.msg !== undefined ? message.msg : new Uint8Array(),
       ));
-    message.callback_code_hash !== undefined &&
-      (obj.callback_code_hash = message.callback_code_hash);
-    if (message.sent_funds) {
-      obj.sent_funds = message.sent_funds.map((e) =>
+    if (message.funds) {
+      obj.funds = message.funds.map((e) =>
         e ? Coin.toJSON(e) : undefined,
       );
     } else {
-      obj.sent_funds = [];
+      obj.funds = [];
     }
-    message.callback_sig !== undefined &&
-      (obj.callback_sig = base64FromBytes(
-        message.callback_sig !== undefined
-          ? message.callback_sig
-          : new Uint8Array(),
-      ));
     return obj;
   },
 
@@ -632,10 +603,8 @@ export const MsgExecuteContract = {
     message.sender = object.sender ?? new Uint8Array();
     message.contract = object.contract ?? new Uint8Array();
     message.msg = object.msg ?? new Uint8Array();
-    message.callback_code_hash = object.callback_code_hash ?? "";
-    message.sent_funds =
-      object.sent_funds?.map((e) => Coin.fromPartial(e)) || [];
-    message.callback_sig = object.callback_sig ?? new Uint8Array();
+    message.funds =
+      object.funds?.map((e) => Coin.fromPartial(e)) || [];
     return message;
   },
 };

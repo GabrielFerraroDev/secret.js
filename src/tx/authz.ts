@@ -35,7 +35,7 @@ export enum MsgGrantAuthorization {
   MsgDeposit = "/cosmos.gov.v1beta1.MsgDeposit",
   MsgEditValidator = "/cosmos.staking.v1beta1.MsgEditValidator",
   MsgExec = "/cosmos.authz.v1beta1.MsgExec",
-  MsgExecuteContract = "/secret.compute.v1beta1.MsgExecuteContract",
+  MsgExecuteContract = "/cosmwasm.wasm.v1.MsgExecuteContract",
   MsgFundCommunityPool = "/cosmos.distribution.v1beta1.MsgFundCommunityPool",
   MsgGrant = "/cosmos.authz.v1beta1.MsgGrant",
   MsgGrantAllowance = "/cosmos.feegrant.v1beta1.MsgGrantAllowance",

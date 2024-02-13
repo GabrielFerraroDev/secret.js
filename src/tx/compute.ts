@@ -1,7 +1,7 @@
-import { toBase64 } from "@cosmjs/encoding";
+import { toBase64, toUtf8 } from "@cosmjs/encoding";
 import { MsgParams } from ".";
 import { EncryptionUtils } from "..";
-import { addressToBytes, is_gzip } from "../utils";
+import { addressToBytes, bytesToAddress, is_gzip } from "../utils";
 import { AminoMsg, Coin, Msg, ProtoMsg } from "./types";
 
 export interface MsgInstantiateContractParams extends MsgParams {
@@ -143,7 +143,7 @@ export interface MsgExecuteContractParams<T> extends MsgParams {
   /** The input message */
   msg: T;
   /** Funds to send to the contract */
-  sent_funds?: Coin[];
+  funds?: Coin[];
   /** The SHA256 hash value of the contract's WASM bytecode, represented as case-insensitive 64
    * character hex string.
    * This is used to make sure only the contract that's being invoked can decrypt the query data.
@@ -165,7 +165,7 @@ export class MsgExecuteContract<T extends object> implements Msg {
   public contractAddress: string;
   public msg: T;
   private msgEncrypted: Uint8Array | null;
-  public sentFunds: Coin[];
+  public funds: Coin[];
   public codeHash: string;
   private warnCodeHash: boolean = false;
 
@@ -173,14 +173,14 @@ export class MsgExecuteContract<T extends object> implements Msg {
     sender,
     contract_address: contractAddress,
     msg,
-    sent_funds: sentFunds,
+    funds: funds,
     code_hash: codeHash,
   }: MsgExecuteContractParams<T>) {
     this.sender = sender;
     this.contractAddress = contractAddress;
     this.msg = msg;
     this.msgEncrypted = null;
-    this.sentFunds = sentFunds ?? [];
+    this.funds = funds ?? [];
 
     if (codeHash) {
       this.codeHash = codeHash.replace(/^0x/, "").toLowerCase();
@@ -193,9 +193,11 @@ export class MsgExecuteContract<T extends object> implements Msg {
   }
 
   async toProto(utils: EncryptionUtils): Promise<ProtoMsg> {
+    console.log("chegou proto")
     if (this.warnCodeHash) {
       console.warn(getMissingCodeHashWarning("MsgExecuteContract"));
     }
+    console.log("this.msgEncrypted:",this.msgEncrypted)
 
     if (!this.msgEncrypted) {
       // The encryption uses a random nonce
@@ -203,19 +205,26 @@ export class MsgExecuteContract<T extends object> implements Msg {
       // so to keep the msg consistant across calls we encrypt the msg only once
       this.msgEncrypted = await utils.encrypt(this.codeHash, this.msg);
     }
+    const senderBytes = addressToBytes(this.sender)
+
+    const senderBack = bytesToAddress(senderBytes)
+    console.log("senderBack",senderBack)
+    
+    const encoder = new TextEncoder(); // UTF-8 text encoder
+
+
 
     const msgContent = {
-      sender: addressToBytes(this.sender),
-      contract: addressToBytes(this.contractAddress),
-      msg: this.msgEncrypted,
-      sent_funds: this.sentFunds,
-      // callback_sig & callback_code_hash are internal stuff that doesn't matter here
-      callback_sig: new Uint8Array(),
-      callback_code_hash: "",
+      sender: toUtf8(this.sender),
+      contract: toUtf8(this.contractAddress),
+      //msg: this.msgEncrypted,
+      msg: toUtf8(JSON.stringify(this.msg)),
+      funds: this.funds,
     };
+    console.log("esse é o msgContent",msgContent)
 
     return {
-      type_url: "/secret.compute.v1beta1.MsgExecuteContract",
+      type_url: "/cosmwasm.wasm.v1.MsgExecuteContract",
       value: msgContent,
       encode: async () =>
         (
@@ -224,6 +233,7 @@ export class MsgExecuteContract<T extends object> implements Msg {
     };
   }
   async toAmino(utils: EncryptionUtils): Promise<AminoMsg> {
+    console.log('voltemos aqui')
     if (this.warnCodeHash) {
       console.warn(getMissingCodeHashWarning("MsgExecuteContract"));
     }
@@ -232,16 +242,21 @@ export class MsgExecuteContract<T extends object> implements Msg {
       // The encryption uses a random nonce
       // toProto() & toAmino() are called multiple times during signing
       // so to keep the msg consistant across calls we encrypt the msg only once
+      console.log("entraste aqui")
       this.msgEncrypted = await utils.encrypt(this.codeHash, this.msg);
+      console.log("encriptou kappa",this.msgEncrypted)
     }
+   
 
     return {
       type: "wasm/MsgExecuteContract",
       value: {
         sender: this.sender,
         contract: this.contractAddress,
-        msg: toBase64(this.msgEncrypted),
-        sent_funds: this.sentFunds,
+        //msg: toBase64(this.msgEncrypted),
+        msg: toUtf8(JSON.stringify(this.msg)),
+
+        funds: this.funds,
       },
     };
   }

@@ -107,10 +107,8 @@ export class ComputeQuerier {
     let code_hash = this.codeHashCache.get(req.contract_address!);
 
     if (!code_hash) {
-      ({ code_hash } = await Query.CodeHashByContractAddress(req, {
-        headers,
-        pathPrefix: this.url,
-      }));
+      console.log("Query for code_hash not implemented")
+      return {}
 
       this.codeHashCache.set(req.contract_address!, code_hash!);
     }
@@ -211,6 +209,7 @@ export class ComputeQuerier {
       try {
         const errorMessageRgx =
           /encrypted: (.+?): (?:instantiate|execute|query|reply to|migrate) contract failed/g;
+                    //@ts-ignore
         const rgxMatches = errorMessageRgx.exec(err.message);
         if (rgxMatches == null || rgxMatches?.length != 2) {
           throw err;
@@ -227,7 +226,9 @@ export class ComputeQuerier {
           //@ts-ignore
           // return the error string
           return fromUtf8(fromBase64(fromUtf8(decryptedBase64Error)));
+          //@ts-ignore
         } catch (parseError) {
+          //@ts-ignore
           if (parseError.message === "Invalid base64 string format") {
             //@ts-ignore
             // return the error string

@@ -103,22 +103,14 @@ export class EncryptionUtilsImpl implements EncryptionUtils {
     contractCodeHash: string,
     msg: object,
   ): Promise<Uint8Array> {
-    const nonce = secureRandom(32, { type: "Uint8Array" });
+    
+    const plaintext = toUtf8(JSON.stringify(msg));
 
-    const txEncryptionKey = await this.getTxEncryptionKey(nonce);
-
-    const siv = await miscreant.SIV.importKey(
-      txEncryptionKey,
-      "AES-SIV",
-      cryptoProvider,
-    );
-
-    const plaintext = toUtf8(contractCodeHash + JSON.stringify(msg));
-
-    const ciphertext = await siv.seal(plaintext, [new Uint8Array()]);
 
     // ciphertext = nonce(32) || wallet_pubkey(32) || ciphertext
-    return Uint8Array.from([...nonce, ...this.pubkey, ...ciphertext]);
+    return Uint8Array.from(plaintext);
+    //return plaintext;
+
   }
 
   public async decrypt(

@@ -159,7 +159,7 @@ export const MsgRegistry = new Map<string, MsgDecoder>([
   ],
   ["/secret.compute.v1beta1.MsgStoreCode", MsgStoreCode],
   ["/secret.compute.v1beta1.MsgInstantiateContract", MsgInstantiateContract],
-  ["/secret.compute.v1beta1.MsgExecuteContract", MsgExecuteContract],
+  ["/cosmwasm.wasm.v1.MsgExecuteContract", MsgExecuteContract],
   ["/secret.compute.v1beta1.MsgMigrateContract", MsgMigrateContract],
   ["/secret.compute.v1beta1.MsgUpdateAdmin", MsgUpdateAdmin],
   ["/secret.compute.v1beta1.MsgClearAdmin", MsgClearAdmin],

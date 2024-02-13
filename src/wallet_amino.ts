@@ -4,6 +4,7 @@ import * as secp256k1 from "@noble/secp256k1";
 import * as bip32 from "bip32";
 import * as bip39 from "bip39";
 import { AminoMsg, Coin, pubkeyToAddress, SignDocCamelCase } from ".";
+import { DirectSecp256k1HdWallet } from "@cosmjs/proto-signing";
 
 export const SECRET_COIN_TYPE = 529;
 export const SECRET_BECH32_PREFIX = "secret";

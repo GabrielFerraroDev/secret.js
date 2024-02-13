@@ -4,6 +4,8 @@ if (typeof window === "undefined" || typeof window.fetch === "undefined") {
   global.fetch = fetch;
 }
 
+import { DirectSecp256k1Wallet, Registry, DirectSecp256k1HdWallet, makeSignDoc, makeSignBytes } from "@cosmjs/proto-signing";
+
 import {
   fromBase64,
   fromHex,
@@ -236,6 +238,7 @@ import {
   isSignDoc,
   isSignDocCamelCase,
 } from "./wallet_amino";
+import Long from "long";
 
 export type CreateClientOptions = {
   /** A URL to the API service, also known as LCD, REST API or gRPC-gateway, by default on port 1317 */
@@ -244,6 +247,9 @@ export type CreateClientOptions = {
   chainId: string;
   /** A wallet for signing transactions & permits. When `wallet` is supplied, `walletAddress` & `chainId` must be supplied too. */
   wallet?: Signer;
+  /** A DirectSecp256k1HdWallet wallet for signing transactions */
+  walletDirect: DirectSecp256k1HdWallet;
+
   /** walletAddress is the specific account address in the wallet that is permitted to sign transactions & permits. */
   walletAddress?: string;
   /** Passing `encryptionSeed` will allow tx decryption at a later time. Ignored if `encryptionUtils` is supplied. Must be 32 bytes. */
@@ -840,11 +846,16 @@ export type TxSender = {
 type ComputeMsgToNonce = { [msgIndex: number]: Uint8Array };
 
 export class SecretNetworkClient {
+  static create ( arg0: { grpcWebUrl: string; chainId: string; } )
+  {
+      throw new Error( "Method not implemented." );
+  }
   public readonly query: Querier;
   public readonly tx: TxSender;
   public readonly address: string;
   private readonly url: string;
   private readonly wallet: Signer;
+  private readonly walletDirect: DirectSecp256k1HdWallet
   private readonly chainId: string;
 
   private encryptionUtils: EncryptionUtils;
@@ -896,7 +907,7 @@ export class SecretNetworkClient {
     if (options.wallet && options.walletAddress === undefined) {
       throw new Error("Must also pass 'walletAddress' when passing 'wallet'");
     }
-
+    this.walletDirect = options.walletDirect
     this.wallet = options.wallet ?? new ReadonlySigner();
     this.address = options.walletAddress ?? "";
     this.chainId = options.chainId;
@@ -1045,32 +1056,36 @@ export class SecretNetworkClient {
   private async getTx(
     hash: string,
     ibcTxOptions?: IbcTxOptions,
-  ): Promise<TxResponse | null> {
+): Promise<TxResponse | null> {
     try {
-      const { tx_response } = await TxService.GetTx(
-        { hash },
-        { pathPrefix: this.url },
-      );
+        const { tx_response } = await TxService.GetTx(
+            { hash },
+            { pathPrefix: this.url },
+        );
 
-      return tx_response
-        ? this.decodeTxResponse(tx_response, ibcTxOptions)
-        : null;
+        return tx_response
+            ? this.decodeTxResponse(tx_response, ibcTxOptions)
+            : null;
     } catch (error) {
-      const txNotFoundRegex = new RegExp(
-        `tx not found: ${hash}|tx \\(${hash}\\) not found`,
-        "i",
-      );
+        const txNotFoundRegex = new RegExp(
+            `tx not found: ${hash}|tx \\(${hash}\\) not found`,
+            "i",
+        );
 
-      if (
-        typeof error?.message == "string" &&
-        error?.message?.match(txNotFoundRegex) !== null
-      ) {
-        return null;
-      } else {
-        throw error;
-      }
+        if (
+            typeof error === "object" &&
+            error !== null &&
+            "message" in error &&
+            typeof (error as { message: unknown }).message === "string" &&
+            (error as { message: string }).message.match(txNotFoundRegex) !== null
+        ) {
+            return null;
+        } else {
+            throw error;
+        }
     }
-  }
+}
+
 
   private async txsQuery(
     query: string,
@@ -1199,7 +1214,7 @@ export class SecretNetworkClient {
       if (msg["@type"] === "/secret.compute.v1beta1.MsgInstantiateContract") {
         contractInputMsgFieldName = "init_msg";
       } else if (
-        msg["@type"] === "/secret.compute.v1beta1.MsgExecuteContract" ||
+        msg["@type"] === "/cosmwasm.wasm.v1.MsgExecuteContract" ||
         msg["@type"] === "/secret.compute.v1beta1.MsgMigrateContract"
       ) {
         contractInputMsgFieldName = "msg";
@@ -1336,7 +1351,7 @@ export class SecretNetworkClient {
               data: decrypted,
             }).finish();
           } else if (
-            type_url === "/secret.compute.v1beta1.MsgExecuteContract"
+            type_url === "/cosmwasm.wasm.v1.MsgExecuteContract"
           ) {
             const decoded = MsgExecuteContractResponse.decode(
               txMsgData.data[msgIndex].data,
@@ -1445,6 +1460,8 @@ export class SecretNetworkClient {
     waitForCommit: boolean,
     ibcTxOptions?: IbcTxOptions,
   ): Promise<TxResponse> {
+    const encoder = new TextEncoder(); // UTF-8 text encoder
+
     const start = Date.now();
 
     const txhash = toHex(sha256(txBytes)).toUpperCase();
@@ -1561,10 +1578,10 @@ export class SecretNetworkClient {
             msg.value.init_msg = toBase64(msg.value.init_msg);
             msg.value.callback_sig = null;
           } else if (
-            msg.type_url === "/secret.compute.v1beta1.MsgExecuteContract"
+            msg.type_url === "/cosmwasm.wasm.v1.MsgExecuteContract"
           ) {
-            msg.value.sender = bytesToAddress(msg.value.sender);
-            msg.value.contract = bytesToAddress(msg.value.contract);
+            msg.value.sender = encoder.encode(msg.value.sender);
+            msg.value.contract = encoder.encode(msg.value.contract);
             msg.value.msg = toBase64(msg.value.msg);
             msg.value.callback_sig = null;
           } else if (msg.type_url === "/secret.compute.v1beta1.MsgStoreCode") {
@@ -1698,7 +1715,7 @@ export class SecretNetworkClient {
     const gasPriceInFeeDenom = txOptions?.gasPriceInFeeDenom ?? 0.1;
     const feeDenom = txOptions?.feeDenom ?? "uscrt";
     const memo = txOptions?.memo ?? "";
-    const feeGranter = txOptions?.feeGranter;
+    const feeGranter = txOptions?.feeGranter || '';
 
     const explicitSignerData = txOptions?.explicitSignerData;
 
@@ -1726,7 +1743,9 @@ export class SecretNetworkClient {
     messages: Msg[],
     txOptions?: TxOptions,
   ): Promise<TxResponse> {
+    console.log("ENTROU AQUI?")
     const txBytes = await this.prepareAndSign(messages, txOptions);
+
 
     return this.broadcastTx(
       txBytes,
@@ -1824,6 +1843,7 @@ export class SecretNetworkClient {
     }
 
     if (isDirectSigner(this.wallet)) {
+      console.log("Entrou no direct")
       return this.signDirect(
         accountFromSigner,
         messages,
@@ -1833,6 +1853,8 @@ export class SecretNetworkClient {
         simulate,
       );
     } else {
+      console.log("Entrou no amino")
+
       return this.signAmino(
         accountFromSigner,
         messages,
@@ -1864,13 +1886,15 @@ export class SecretNetworkClient {
     if (typeof this.wallet.getSignMode === "function") {
       signMode = await this.wallet.getSignMode();
     }
+    console.log(messages)
 
     const msgs = await Promise.all(
       messages.map(async (msg) => {
-        await this.populateCodeHash(msg);
+        console.log("pulou")
         return msg.toAmino(this.encryptionUtils);
       }),
     );
+    console.log("msgs testezinho",msgs)
     const signDoc = makeSignDocAmino(
       msgs,
       fee,
@@ -1882,23 +1906,28 @@ export class SecretNetworkClient {
 
     let signed: StdSignDoc;
     let signature: StdSignature;
-
+    console.log("address:",account.address)
+    console.log("signDoc:",signDoc)
     if (!simulate) {
       ({ signature, signed } = await this.wallet.signAmino(
         account.address,
         signDoc,
       ));
+
+      console.log("aloha",signature)
+      console.log("aloha2",signed)
+
     } else {
       signed = signDoc;
       signature = getSimulateSignature();
     }
+
 
     const txBody = {
       type_url: "/cosmos.tx.v1beta1.TxBody",
       value: {
         messages: await Promise.all(
           messages.map(async (msg, index) => {
-            await this.populateCodeHash(msg);
             const asProto: ProtoMsg = await msg.toProto(this.encryptionUtils);
 
             return asProto;
@@ -1907,21 +1936,56 @@ export class SecretNetworkClient {
         memo: memo,
       },
     };
+    console.log("messages",messages)
+    console.log("txBody",txBody)
+    console.log("messages",txBody.value.messages)
     const txBodyBytes = await this.encodeTx(txBody);
     const signedGasLimit = Number(signed.fee.gas);
     const signedSequence = Number(signed.sequence);
     const pubkey = await encodePubkey(encodeSecp256k1Pubkey(account.pubkey));
+    console.log("pubkey",pubkey)
+
+    console.log("signed sequence",signedSequence)
+    console.log("sequence",sequence)
+
+    console.log()
+
     const signedAuthInfoBytes = await makeAuthInfoBytes(
       [{ pubkey, sequence: signedSequence }],
       signed.fee.amount,
       signedGasLimit,
       signed.fee.granter,
-      signMode,
+      1,
     );
+    console.log("signed.fee.amount",signed.fee.amount)
+    console.log("signedGasLimit",signedGasLimit)
+
+    console.log("signed.fee.granter",signed.fee.granter)
+
+    console.log("signMode",signMode)
+
+
+
+    const walletDirect = await DirectSecp256k1HdWallet.fromMnemonic('strategy grid choose base debate milk cattle afford song path surprise adapt', {prefix:'sei'});
+    const [{ address }] = await walletDirect.getAccounts();
+
+    const signDocTest = {
+      bodyBytes:txBodyBytes,
+      authInfoBytes:signedAuthInfoBytes,
+      chainId:'pacific-1',
+      accountNumber:Long.fromString(accountNumber.toString())
+
+    }
+
+    const { signature:signature2 } = await walletDirect.signDirect(address, signDocTest);
+    console.log("signature old",signature)
+    console.log("signature direct",signature2)
+
+
     return TxRaw.fromPartial({
       body_bytes: txBodyBytes,
       auth_info_bytes: signedAuthInfoBytes,
-      signatures: [fromBase64(signature.signature)],
+      signatures: [fromBase64(signature2.signature)],
     });
   }
 

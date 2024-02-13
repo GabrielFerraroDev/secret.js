@@ -232,7 +232,7 @@ export function addressToBytes(address: string): Uint8Array {
  */
 export function bytesToAddress(
   bytes: Uint8Array,
-  prefix: string = "secret",
+  prefix: string = "sei",
 ): string {
   if (bytes.length === 0) {
     return "";

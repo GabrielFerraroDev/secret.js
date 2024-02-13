@@ -37,9 +37,7 @@ export type MsgExecuteContract = {
   sender?: Uint8Array
   contract?: Uint8Array
   msg?: Uint8Array
-  callback_code_hash?: string
-  sent_funds?: CosmosBaseV1beta1Coin.Coin[]
-  callback_sig?: Uint8Array
+  funds?: CosmosBaseV1beta1Coin.Coin[]
 }
 
 export type MsgExecuteContractResponse = {
