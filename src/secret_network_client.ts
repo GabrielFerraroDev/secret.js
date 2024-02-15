@@ -1513,7 +1513,7 @@ export class SecretNetworkClient {
         ) as AnyJson;
 
         const tx = tx_response!.tx as TxPb;
-
+        
         const resolvePubkey = (pubkey: Any) => {
           if (pubkey.type_url === "/cosmos.crypto.multisig.LegacyAminoPubKey") {
             const multisig = LegacyAminoPubKey.decode(
@@ -1583,7 +1583,6 @@ export class SecretNetworkClient {
             msg.value.sender = encoder.encode(msg.value.sender);
             msg.value.contract = encoder.encode(msg.value.contract);
             msg.value.msg = toBase64(msg.value.msg);
-            msg.value.callback_sig = null;
           } else if (msg.type_url === "/secret.compute.v1beta1.MsgStoreCode") {
             msg.value.sender = bytesToAddress(msg.value.sender);
             msg.value.wasm_byte_code = toBase64(msg.value.wasm_byte_code);
@@ -1604,6 +1603,7 @@ export class SecretNetworkClient {
         return await this.decodeTxResponse(tx_response!, ibcTxOptions);
       }
     } else if (mode === BroadcastMode.Sync) {
+      console.log("entrou no mode sync")
       const { BroadcastMode } = await import(
         "./grpc_gateway/cosmos/tx/v1beta1/service.pb"
       );
@@ -1616,6 +1616,8 @@ export class SecretNetworkClient {
         },
         { pathPrefix: this.url },
       ));
+      console.log("essa é a tx_response",tx_response)
+
 
       if (tx_response?.code !== 0) {
         throw new Error(
@@ -1654,7 +1656,12 @@ export class SecretNetworkClient {
     await sleep(checkIntervalMs / 2);
 
     while (true) {
+      console.log("Entrou no getTx")
+      console.log("esse é o txhash",txhash) 
+      console.log("esse é o ibcTxOptions",ibcTxOptions)
+
       const result = await this.getTx(txhash, ibcTxOptions);
+      console.log("result getTx",result)
 
       if (result) {
         return result;
@@ -1948,7 +1955,6 @@ export class SecretNetworkClient {
     console.log("signed sequence",signedSequence)
     console.log("sequence",sequence)
 
-    console.log()
 
     const signedAuthInfoBytes = await makeAuthInfoBytes(
       [{ pubkey, sequence: signedSequence }],
@@ -1966,7 +1972,7 @@ export class SecretNetworkClient {
 
 
 
-    const walletDirect = await DirectSecp256k1HdWallet.fromMnemonic('strategy grid choose base debate milk cattle afford song path surprise adapt', {prefix:'sei'});
+    const walletDirect = this.walletDirect
     const [{ address }] = await walletDirect.getAccounts();
 
     const signDocTest = {
