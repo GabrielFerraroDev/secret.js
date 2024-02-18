@@ -1618,8 +1618,10 @@ export class SecretNetworkClient {
       ));
       console.log("essa é a tx_response",tx_response)
 
+      
 
-      if (tx_response?.code !== 0) {
+
+      if (tx_response?.code !== 0 && tx_response?.code !== 19) {
         throw new Error(
           `Broadcasting transaction failed with code ${tx_response?.code} (codespace: ${tx_response?.codespace}). Log: ${tx_response?.raw_log}`,
         );
