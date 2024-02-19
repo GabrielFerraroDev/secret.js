@@ -26,6 +26,24 @@ export const is_gzip = (buf: Buffer | Uint8Array): boolean => {
 
   return buf[0] === 0x1f && buf[1] === 0x8b && buf[2] === 0x08;
 };
+function delay(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+export async function delayUntil(hour: number, minute: number, second: number): Promise<void> {
+    const now = new Date();
+    const targetTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hour, minute, second);
+
+    let delayTime = targetTime.getTime() - now.getTime();
+    if (delayTime < 0) {
+        // If the time is in the past, schedule for the next day
+        targetTime.setDate(targetTime.getDate() + 1);
+        delayTime = targetTime.getTime() - now.getTime();
+    }
+
+    console.log(`Waiting for ${delayTime / 1000} seconds until the scheduled time.`);
+    await delay(delayTime);
+}
 
 /**
  * Convert a secp256k1 compressed public key to an address

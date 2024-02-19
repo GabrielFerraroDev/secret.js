@@ -76,6 +76,7 @@ import {
   NodeQuerier,
   StdSignature,
   bytesToAddress,
+  delayUntil,
 } from ".";
 import { EncryptionUtils, EncryptionUtilsImpl } from "./encryption";
 import { PermitSigner } from "./extensions/access_control/permit/permit_signer";
@@ -1755,7 +1756,7 @@ export class SecretNetworkClient {
     console.log("ENTROU AQUI?")
     const txBytes = await this.prepareAndSign(messages, txOptions);
 
-
+    //await delayUntil(19,0,0)
     return this.broadcastTx(
       txBytes,
       txOptions?.broadcastTimeoutMs ?? 60_000,
